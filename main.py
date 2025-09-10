@@ -9,8 +9,10 @@ import logging
 from datetime import datetime, timedelta
 from typing import List, Dict, Optional, Any
 from contextlib import asynccontextmanager
+import tempfile
+import shutil
 
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File, Form
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -21,6 +23,8 @@ from passlib.context import CryptContext
 # Local imports
 from quiz_logic import QuizService, QuizConfig, QuizSession
 from quiz_api_models import *
+from csv_upload_service import CSVUploadService
+from csv_upload_validator import CSVUploadValidator
 
 # === Configuration ===
 
@@ -42,6 +46,9 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # JWT Security
 security = HTTPBearer()
+
+# CSV Upload Service
+csv_upload_service = CSVUploadService(database_url=DATABASE_URL)
 
 # === Application Lifecycle ===
 
@@ -186,7 +193,7 @@ async def login(user_data: UserLogin):
         with QuizService(DATABASE_URL) as quiz_service:
             # Get user by username
             user = quiz_service.engine.get_user_by_username(user_data.username)
-            if not user or not verify_password(user_data.password, user['hashed_password']):
+            if not user or not verify_password(user_data.password, user['password_hash']):
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="Incorrect username or password",
@@ -631,6 +638,145 @@ async def get_progress(token_data: dict = Depends(verify_token)):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Progress retrieval failed"
+        )
+
+# === CSV Upload Endpoints ===
+
+class CSVUploadResponse(BaseModel):
+    upload_id: str
+    is_valid: bool
+    can_import: bool
+    validation_summary: Dict[str, Any]
+    validation_report: str
+    uploaded_file_path: str
+
+class CSVImportResponse(BaseModel):
+    success: bool
+    upload_id: str
+    import_results: Dict[str, Any]
+    validation_summary: Dict[str, Any]
+    error: Optional[str] = None
+
+@app.post("/api/admin/csv/upload", response_model=CSVUploadResponse)
+async def upload_csv_file(
+    file: UploadFile = File(...),
+    token_data: dict = Depends(verify_token)
+):
+    """Upload and validate CSV file for admin users"""
+    try:
+        # Check if user has admin privileges (you may want to add role checking)
+        user_id = token_data["user_id"]
+        
+        # Validate file type
+        if not file.filename.lower().endswith('.csv'):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Only CSV files are allowed"
+            )
+        
+        # Create temporary file
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.csv') as temp_file:
+            # Copy uploaded file to temporary location
+            shutil.copyfileobj(file.file, temp_file)
+            temp_file_path = temp_file.name
+        
+        try:
+            # Upload and validate using CSV service
+            upload_result = csv_upload_service.upload_and_validate_csv(
+                temp_file_path, user_id, file.filename
+            )
+            
+            if upload_result.get('error'):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=upload_result['error']
+                )
+            
+            return CSVUploadResponse(
+                upload_id=upload_result['upload_id'],
+                is_valid=upload_result['is_valid'],
+                can_import=upload_result['can_import'],
+                validation_summary=upload_result['validation_summary'],
+                validation_report=upload_result['validation_report'],
+                uploaded_file_path=upload_result['uploaded_file_path']
+            )
+        
+        finally:
+            # Clean up temporary file
+            if os.path.exists(temp_file_path):
+                os.unlink(temp_file_path)
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"CSV upload error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="CSV upload failed"
+        )
+
+@app.post("/api/admin/csv/import", response_model=CSVImportResponse)
+async def import_csv_file(
+    upload_id: str = Form(...),
+    force_import: bool = Form(False),
+    token_data: dict = Depends(verify_token)
+):
+    """Import a previously validated CSV file"""
+    try:
+        user_id = token_data["user_id"]
+        
+        # Import the CSV using the upload service
+        import_result = csv_upload_service.import_validated_csv(
+            upload_id, user_id, force_import
+        )
+        
+        if not import_result['success']:
+            if import_result.get('requires_force'):
+                return CSVImportResponse(
+                    success=False,
+                    upload_id=upload_id,
+                    import_results={},
+                    validation_summary={},
+                    error=import_result['error']
+                )
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=import_result['error']
+                )
+        
+        return CSVImportResponse(
+            success=True,
+            upload_id=upload_id,
+            import_results=import_result['import_results'],
+            validation_summary=import_result['validation_summary']
+        )
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"CSV import error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="CSV import failed"
+        )
+
+@app.get("/api/admin/csv/uploads")
+async def get_upload_history(
+    limit: int = 50,
+    token_data: dict = Depends(verify_token)
+):
+    """Get upload history for the current user"""
+    try:
+        user_id = token_data["user_id"]
+        upload_history = csv_upload_service.get_upload_history(user_id, limit)
+        return {"uploads": upload_history}
+    
+    except Exception as e:
+        logger.error(f"Upload history retrieval error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve upload history"
         )
 
 # === Health Check ===

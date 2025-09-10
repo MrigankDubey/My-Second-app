@@ -512,8 +512,8 @@ class QuizEngine:
         cur = self.conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         
         cur.execute("""
-            SELECT user_id, username, hashed_password, email, created_at
-            FROM users 
+            SELECT user_id, username, password_hash, email, created_at
+            FROM users
             WHERE username = %s
         """, (username,))
         
@@ -527,7 +527,7 @@ class QuizEngine:
         cur = self.conn.cursor()
         
         cur.execute("""
-            INSERT INTO users (username, hashed_password, email)
+            INSERT INTO users (username, password_hash, email)
             VALUES (%s, %s, %s)
             RETURNING user_id
         """, (username, hashed_password, email))
@@ -542,7 +542,7 @@ class QuizEngine:
         cur = self.conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         
         cur.execute("""
-            SELECT quiz_type_id, name, description
+            SELECT quiz_type_id, name
             FROM quiz_types
             ORDER BY name
         """)

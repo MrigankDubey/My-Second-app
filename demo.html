@@ -170,6 +170,34 @@
             <div id="progressResult"></div>
         </div>
 
+        <!-- CSV Upload Section -->
+        <div class="section">
+            <h3>📁 CSV Upload (Admin)</h3>
+            
+            <div>
+                <h4>Upload Questions CSV</h4>
+                <input type="file" id="csvFile" accept=".csv" />
+                <button onclick="uploadCSV()">Upload & Validate</button>
+            </div>
+            
+            <div id="uploadResult"></div>
+            
+            <div id="importSection" style="display: none;">
+                <h4>Import Validated CSV</h4>
+                <label>
+                    <input type="checkbox" id="forceImport" />
+                    Force import (ignore warnings)
+                </label>
+                <button onclick="importCSV()" id="importBtn">Import Questions</button>
+            </div>
+            
+            <div>
+                <h4>Upload History</h4>
+                <button onclick="getUploadHistory()">View Upload History</button>
+                <div id="uploadHistory"></div>
+            </div>
+        </div>
+
         <!-- Response Display -->
         <div class="section">
             <h3>🔍 API Response</h3>
@@ -184,6 +212,7 @@
         let currentSession = null;
         let userResponses = [];
         let isSessionMode = false;
+        let currentUploadId = null;
 
         function displayResponse(data, isError = false) {
             const responseDiv = document.getElementById('responseDisplay');
@@ -535,6 +564,169 @@
                 console.log('API not available yet:', error.message);
             }
         };
+
+        // CSV Upload Functions
+        async function uploadCSV() {
+            if (!authToken) {
+                showMessage('uploadResult', 'Please login first', true);
+                return;
+            }
+
+            const fileInput = document.getElementById('csvFile');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                showMessage('uploadResult', 'Please select a CSV file', true);
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                showMessage('uploadResult', 'Uploading and validating CSV...', false);
+                
+                const response = await fetch(`${API_BASE}/admin/csv/upload`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: formData
+                });
+
+                const data = await response.json();
+                displayResponse(data, !response.ok);
+
+                if (response.ok) {
+                    currentUploadId = data.upload_id;
+                    
+                    let message = `File uploaded! Valid: ${data.is_valid ? '✓' : '✗'}, Can Import: ${data.can_import ? '✓' : '✗'}`;
+                    if (data.validation_summary) {
+                        message += `\nValid rows: ${data.validation_summary.valid_rows}, Invalid: ${data.validation_summary.invalid_rows}`;
+                        message += `\nErrors: ${data.validation_summary.error_count}, Warnings: ${data.validation_summary.warning_count}`;
+                    }
+                    
+                    showMessage('uploadResult', message, !data.can_import);
+                    
+                    // Show validation report
+                    if (data.validation_report) {
+                        const reportDiv = document.createElement('div');
+                        reportDiv.className = 'response';
+                        reportDiv.style.marginTop = '10px';
+                        reportDiv.textContent = data.validation_report;
+                        document.getElementById('uploadResult').appendChild(reportDiv);
+                    }
+                    
+                    // Show import section if file can be imported
+                    if (data.can_import || data.validation_summary.warning_count > 0) {
+                        document.getElementById('importSection').style.display = 'block';
+                    }
+                } else {
+                    showMessage('uploadResult', `Upload failed: ${data.error || data.detail}`, true);
+                }
+            } catch (error) {
+                showMessage('uploadResult', `Error: ${error.message}`, true);
+                displayResponse({ error: error.message }, true);
+            }
+        }
+
+        async function importCSV() {
+            if (!authToken || !currentUploadId) {
+                showMessage('uploadResult', 'Please upload and validate a CSV file first', true);
+                return;
+            }
+
+            const forceImport = document.getElementById('forceImport').checked;
+
+            try {
+                showMessage('uploadResult', 'Importing CSV questions...', false);
+                
+                const formData = new FormData();
+                formData.append('upload_id', currentUploadId);
+                formData.append('force_import', forceImport);
+
+                const response = await fetch(`${API_BASE}/admin/csv/import`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: formData
+                });
+
+                const data = await response.json();
+                displayResponse(data, !response.ok);
+
+                if (response.ok && data.success) {
+                    const results = data.import_results;
+                    showMessage('uploadResult', 
+                        `Import successful! ${results.imported_count} questions imported, ${results.error_count} errors. Success rate: ${results.success_rate.toFixed(1)}%`, 
+                        false);
+                    
+                    // Hide import section and reset
+                    document.getElementById('importSection').style.display = 'none';
+                    currentUploadId = null;
+                    document.getElementById('csvFile').value = '';
+                } else {
+                    showMessage('uploadResult', `Import failed: ${data.error || 'Unknown error'}`, true);
+                }
+            } catch (error) {
+                showMessage('uploadResult', `Error: ${error.message}`, true);
+                displayResponse({ error: error.message }, true);
+            }
+        }
+
+        async function getUploadHistory() {
+            if (!authToken) {
+                showMessage('uploadHistory', 'Please login first', true);
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/admin/csv/uploads`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+
+                const data = await response.json();
+                displayResponse(data, !response.ok);
+
+                if (response.ok) {
+                    const uploads = data.uploads;
+                    if (uploads.length === 0) {
+                        showMessage('uploadHistory', 'No upload history found');
+                        return;
+                    }
+                    
+                    let historyHtml = '<table style="width: 100%; border-collapse: collapse; margin-top: 10px;">';
+                    historyHtml += '<tr style="background-color: #f0f0f0;"><th>File</th><th>Status</th><th>Uploaded</th><th>Imported</th><th>Questions</th></tr>';
+                    
+                    uploads.forEach(upload => {
+                        const uploadDate = new Date(upload.upload_timestamp).toLocaleDateString();
+                        const importDate = upload.import_timestamp ? new Date(upload.import_timestamp).toLocaleDateString() : '-';
+                        const questionCount = upload.imported_count || 0;
+                        
+                        historyHtml += `
+                            <tr style="border-bottom: 1px solid #ddd;">
+                                <td style="padding: 8px;">${upload.original_filename}</td>
+                                <td style="padding: 8px;">${upload.status}</td>
+                                <td style="padding: 8px;">${uploadDate}</td>
+                                <td style="padding: 8px;">${importDate}</td>
+                                <td style="padding: 8px;">${questionCount}</td>
+                            </tr>
+                        `;
+                    });
+                    
+                    historyHtml += '</table>';
+                    
+                    const historyDiv = document.getElementById('uploadHistory');
+                    historyDiv.innerHTML = historyHtml;
+                } else {
+                    showMessage('uploadHistory', `Failed to get upload history: ${data.error}`, true);
+                }
+            } catch (error) {
+                showMessage('uploadHistory', `Error: ${error.message}`, true);
+                displayResponse({ error: error.message }, true);
+            }
+        }
     </script>
 </body>
 </html>

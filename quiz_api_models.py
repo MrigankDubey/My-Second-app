@@ -414,3 +414,7 @@ if __name__ == "__main__":
     print("This module defines the API models and endpoint structure for the quiz system.")
     print("Use these models with FastAPI to create a complete REST API.")
     print(f"\\nExample FastAPI implementation:\\n{FASTAPI_EXAMPLE}")
+
+# Update forward references
+QuizSessionResult.model_rebuild()
+QuizSessionSummary.model_rebuild()

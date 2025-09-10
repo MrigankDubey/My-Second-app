@@ -1,0 +1,7 @@
+question_text,quiz_type,correct_answer,options
+"What is a synonym of 'happy'?",synonym,joyful,"sad,joyful,angry,tired"
+"Choose the antonym of 'hot'.",antonym,cold,"warm,cool,cold,tepid"
+"What does 'ameliorate' mean?",word_meaning,improve,"worsen,improve,ignore,delay"
+"Which word is the odd one out?",odd_one_out,destroy,"create,build,construct,destroy"
+"Happy is to joyful as sad is to _____",analogy,melancholy,"cheerful,excited,melancholy,energetic"
+"The professor's _____ lecture was engaging.",fill_in_blank,fascinating,"boring,tedious,fascinating,dull"

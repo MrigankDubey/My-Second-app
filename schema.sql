@@ -141,9 +141,9 @@ BEGIN
 
     -- Combine options and correct answer into a single array
     IF p_options IS NOT NULL THEN
-        v_all_words := p_options || ARRAY[p_correct_answer];
+        v_all_words := p_options || ARRAY[p_correct_answer]::TEXT[];
     ELSE
-        v_all_words := ARRAY[p_correct_answer];
+        v_all_words := ARRAY[p_correct_answer]::TEXT[];
     END IF;
 
     -- Insert words (lowercased) and map them to the question
@@ -245,6 +245,88 @@ SELECT
     ROUND(100.0 * COUNT(*) FILTER (WHERE wm.mastered = TRUE) / NULLIF(COUNT(*),0), 2) AS mastery_percentage
 FROM word_mastery_by_type wm
 GROUP BY wm.user_id, wm.quiz_type;
+
+-- Enhanced function to add questions with automatic word mapping (simplified version)
+CREATE OR REPLACE FUNCTION add_question_with_mastery_tracking(
+    p_quiz_type VARCHAR,
+    p_question_text TEXT,
+    p_correct_answer VARCHAR,
+    p_options TEXT[],
+    p_created_by INT
+)
+RETURNS INT AS $$
+DECLARE
+    v_quiz_type_id INT;
+    v_question_id INT;
+    v_option TEXT;
+    v_word TEXT;
+    v_word_id INT;
+    v_unique_words TEXT[] := ARRAY[]::TEXT[];
+    v_answer_word TEXT;
+BEGIN
+    -- Ensure quiz type exists
+    SELECT quiz_type_id INTO v_quiz_type_id FROM quiz_types WHERE name = p_quiz_type;
+    IF v_quiz_type_id IS NULL THEN
+        INSERT INTO quiz_types (name) VALUES (p_quiz_type) RETURNING quiz_type_id INTO v_quiz_type_id;
+    END IF;
+
+    -- Insert question
+    INSERT INTO questions (quiz_type_id, question_text, correct_answer, created_by)
+    VALUES (v_quiz_type_id, p_question_text, p_correct_answer, p_created_by)
+    RETURNING question_id INTO v_question_id;
+
+    -- Insert options
+    IF p_options IS NOT NULL THEN
+        FOREACH v_option IN ARRAY p_options LOOP
+            IF v_option IS NOT NULL AND TRIM(v_option) <> '' THEN
+                INSERT INTO options (question_id, option_text) VALUES (v_question_id, TRIM(v_option));
+            END IF;
+        END LOOP;
+    END IF;
+
+    -- Process correct answer as the primary word to track (normalized)
+    v_answer_word := TRIM(LOWER(p_correct_answer));
+    IF v_answer_word IS NOT NULL AND v_answer_word <> '' THEN
+        -- Insert or get existing word
+        INSERT INTO words (word_text) VALUES (v_answer_word)
+        ON CONFLICT (word_text) DO NOTHING;
+        
+        SELECT word_id INTO v_word_id FROM words WHERE word_text = v_answer_word;
+        
+        -- Map the answer word to the question
+        INSERT INTO word_question_map (word_id, question_id)
+        VALUES (v_word_id, v_question_id)
+        ON CONFLICT (word_id, question_id) DO NOTHING;
+        
+        -- Add to unique words array for tracking
+        v_unique_words := v_unique_words || v_answer_word;
+    END IF;
+
+    -- Process options as additional words to track (only unique ones)
+    IF p_options IS NOT NULL THEN
+        FOREACH v_option IN ARRAY p_options LOOP
+            v_word := TRIM(LOWER(v_option));
+            IF v_word IS NOT NULL AND v_word <> '' AND NOT (v_word = ANY(v_unique_words)) THEN
+                -- Insert or get existing word
+                INSERT INTO words (word_text) VALUES (v_word)
+                ON CONFLICT (word_text) DO NOTHING;
+                
+                SELECT word_id INTO v_word_id FROM words WHERE word_text = v_word;
+                
+                -- Map word to question
+                INSERT INTO word_question_map (word_id, question_id)
+                VALUES (v_word_id, v_question_id)
+                ON CONFLICT (word_id, question_id) DO NOTHING;
+                
+                -- Add to unique words array
+                v_unique_words := v_unique_words || v_word;
+            END IF;
+        END LOOP;
+    END IF;
+    
+    RETURN v_question_id;
+END;
+$$ LANGUAGE plpgsql;
 
 -- A convenience index for faster lookups
 CREATE INDEX IF NOT EXISTS idx_word_question_map_question_id ON word_question_map(question_id);
