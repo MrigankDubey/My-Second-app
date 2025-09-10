@@ -1,0 +1,7 @@
+question_text,quiz_type,correct_answer,options
+Short?,synonym,brief,"long,brief,tiny"
+Pick the word.,synonym,select,"choose,select,pick"
+A correct analogy question: A : B :: C : ?,analogy,D,"X,D,Y,Z"
+Weather today.,fill_in_blank,nice,"bad,nice,awful"
+Find different item.,odd_one_out,apple,"car,train,plane,apple"
+"""Excellent"" means very good.",word_meaning,very good,"bad,very good,okay,poor"

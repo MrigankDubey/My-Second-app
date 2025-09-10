@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CSV Question Upload System</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .upload-section {
+            border: 2px dashed #ddd;
+            border-radius: 10px;
+            padding: 30px;
+            text-align: center;
+            margin-bottom: 30px;
+            transition: border-color 0.3s;
+        }
+        .upload-section:hover {
+            border-color: #007bff;
+        }
+        .file-input {
+            margin: 20px 0;
+        }
+        .file-input input[type="file"] {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            width: 300px;
+        }
+        .btn {
+            background-color: #007bff;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+        }
+        .btn:hover {
+            background-color: #0056b3;
+        }
+        .btn-success {
+            background-color: #28a745;
+        }
+        .btn-success:hover {
+            background-color: #1e7e34;
+        }
+        .btn-warning {
+            background-color: #ffc107;
+            color: #212529;
+        }
+        .btn-warning:hover {
+            background-color: #e0a800;
+        }
+        .btn-danger {
+            background-color: #dc3545;
+        }
+        .btn-danger:hover {
+            background-color: #c82333;
+        }
+        .btn:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+        .result-section {
+            margin-top: 30px;
+            padding: 20px;
+            border-radius: 5px;
+            display: none;
+        }
+        .result-success {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .result-error {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .result-warning {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+        }
+        .validation-report {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 15px 0;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background-color: #e9ecef;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        .progress-fill {
+            height: 100%;
+            background-color: #007bff;
+            transition: width 0.3s;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .stat-card {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            text-align: center;
+            border: 1px solid #dee2e6;
+        }
+        .stat-number {
+            font-size: 24px;
+            font-weight: bold;
+            color: #007bff;
+        }
+        .stat-label {
+            font-size: 12px;
+            color: #6c757d;
+            text-transform: uppercase;
+        }
+        .history-section {
+            margin-top: 30px;
+            padding: 20px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+        }
+        .history-item {
+            background: white;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+            border-left: 4px solid #007bff;
+        }
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #007bff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .hidden {
+            display: none;
+        }
+        .sample-download {
+            text-align: center;
+            margin: 20px 0;
+        }
+        .info-box {
+            background-color: #e7f3ff;
+            border: 1px solid #b8daff;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 20px 0;
+        }
+        .info-box h3 {
+            margin-top: 0;
+            color: #004085;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎓 Vocabulary Questions CSV Upload System</h1>
+        
+        <div class="info-box">
+            <h3>Supported Question Types</h3>
+            <p><strong>synonym</strong> - Find words with similar meaning<br>
+            <strong>antonym</strong> - Find words with opposite meaning<br>
+            <strong>analogy</strong> - Complete word relationships (A : B :: C : ?)<br>
+            <strong>fill_in_blank</strong> - Complete sentences with missing words<br>
+            <strong>odd_one_out</strong> - Find the word that doesn't belong<br>
+            <strong>word_meaning</strong> - Define vocabulary words</p>
+        </div>
+
+        <div class="sample-download">
+            <a href="/download/sample" class="btn">📥 Download Sample CSV Template</a>
+        </div>
+        
+        <div class="upload-section">
+            <h2>📁 Upload CSV File</h2>
+            <p>Select a CSV file containing vocabulary questions for validation and import.</p>
+            
+            <form id="uploadForm">
+                <div class="file-input">
+                    <input type="file" id="csvFile" name="csv_file" accept=".csv" required>
+                </div>
+                
+                <div>
+                    <label for="userId">User ID:</label>
+                    <input type="number" id="userId" name="user_id" value="1" min="1" style="width: 80px; padding: 5px;">
+                </div>
+                
+                <button type="submit" class="btn" id="uploadBtn">
+                    🔍 Upload & Validate
+                </button>
+            </form>
+        </div>
+        
+        <div id="resultSection" class="result-section">
+            <div id="loadingIndicator" class="hidden">
+                <div class="loading"></div>
+                <span>Processing file...</span>
+            </div>
+            
+            <div id="uploadResults" class="hidden">
+                <h3>📊 Validation Results</h3>
+                
+                <div id="statsGrid" class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-number" id="totalRows">-</div>
+                        <div class="stat-label">Total Rows</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="validRows">-</div>
+                        <div class="stat-label">Valid Rows</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="errorCount">-</div>
+                        <div class="stat-label">Errors</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="warningCount">-</div>
+                        <div class="stat-label">Warnings</div>
+                    </div>
+                </div>
+                
+                <div id="validationReport" class="validation-report"></div>
+                
+                <div id="importSection" class="hidden">
+                    <h4>Import Options</h4>
+                    <button id="importBtn" class="btn btn-success">
+                        ✅ Import Questions
+                    </button>
+                    <button id="forceImportBtn" class="btn btn-warning hidden">
+                        ⚠️ Force Import (Ignore Warnings)
+                    </button>
+                </div>
+                
+                <div id="importResults" class="hidden">
+                    <h4>📈 Import Results</h4>
+                    <div id="importStats"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="history-section">
+            <h3>📚 Recent Uploads</h3>
+            <button id="loadHistoryBtn" class="btn">Load Upload History</button>
+            <div id="historyList"></div>
+        </div>
+    </div>
+
+    <script>
+        let currentUploadId = null;
+
+        document.getElementById('uploadForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const fileInput = document.getElementById('csvFile');
+            const userId = document.getElementById('userId').value;
+            
+            if (!fileInput.files[0]) {
+                alert('Please select a CSV file');
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('csv_file', fileInput.files[0]);
+            formData.append('user_id', userId);
+            
+            // Show loading
+            showLoading();
+            
+            try {
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                hideLoading();
+                
+                if (result.success) {
+                    currentUploadId = result.upload_id;
+                    showValidationResults(result);
+                } else {
+                    showError(result.error || 'Upload failed');
+                }
+                
+            } catch (error) {
+                hideLoading();
+                showError('Upload failed: ' + error.message);
+            }
+        });
+
+        async function importFile(forceImport = false) {
+            if (!currentUploadId) {
+                alert('No file to import');
+                return;
+            }
+            
+            const userId = document.getElementById('userId').value;
+            
+            try {
+                const response = await fetch(`/import/${currentUploadId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        user_id: parseInt(userId),
+                        force_import: forceImport
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showImportResults(result.import_results);
+                } else {
+                    if (result.requires_force) {
+                        document.getElementById('forceImportBtn').classList.remove('hidden');
+                        showError(result.error);
+                    } else {
+                        showError(result.error || 'Import failed');
+                    }
+                }
+                
+            } catch (error) {
+                showError('Import failed: ' + error.message);
+            }
+        }
+
+        document.getElementById('importBtn').addEventListener('click', () => importFile(false));
+        document.getElementById('forceImportBtn').addEventListener('click', () => importFile(true));
+
+        document.getElementById('loadHistoryBtn').addEventListener('click', async function() {
+            const userId = document.getElementById('userId').value;
+            
+            try {
+                const response = await fetch(`/history/${userId}`);
+                const result = await response.json();
+                
+                if (result.history) {
+                    showHistory(result.history);
+                } else {
+                    showError(result.error || 'Failed to load history');
+                }
+                
+            } catch (error) {
+                showError('Failed to load history: ' + error.message);
+            }
+        });
+
+        function showLoading() {
+            document.getElementById('resultSection').style.display = 'block';
+            document.getElementById('loadingIndicator').classList.remove('hidden');
+            document.getElementById('uploadResults').classList.add('hidden');
+        }
+
+        function hideLoading() {
+            document.getElementById('loadingIndicator').classList.add('hidden');
+        }
+
+        function showValidationResults(result) {
+            document.getElementById('uploadResults').classList.remove('hidden');
+            
+            const summary = result.validation_summary;
+            
+            // Update stats
+            document.getElementById('totalRows').textContent = summary.total_rows;
+            document.getElementById('validRows').textContent = summary.valid_rows;
+            document.getElementById('errorCount').textContent = summary.error_count;
+            document.getElementById('warningCount').textContent = summary.warning_count;
+            
+            // Show validation report
+            document.getElementById('validationReport').textContent = result.validation_report;
+            
+            // Show result status
+            const resultSection = document.getElementById('resultSection');
+            resultSection.className = 'result-section';
+            
+            if (result.can_import) {
+                if (summary.warning_count > 0) {
+                    resultSection.classList.add('result-warning');
+                } else {
+                    resultSection.classList.add('result-success');
+                }
+                document.getElementById('importSection').classList.remove('hidden');
+            } else {
+                resultSection.classList.add('result-error');
+            }
+        }
+
+        function showImportResults(importResults) {
+            document.getElementById('importResults').classList.remove('hidden');
+            
+            const statsHtml = `
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-number">${importResults.imported_count}</div>
+                        <div class="stat-label">Imported</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">${importResults.error_count}</div>
+                        <div class="stat-label">Errors</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">${importResults.success_rate.toFixed(1)}%</div>
+                        <div class="stat-label">Success Rate</div>
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('importStats').innerHTML = statsHtml;
+            
+            // Hide import buttons
+            document.getElementById('importSection').style.display = 'none';
+        }
+
+        function showHistory(history) {
+            const historyList = document.getElementById('historyList');
+            
+            if (history.length === 0) {
+                historyList.innerHTML = '<p>No upload history found.</p>';
+                return;
+            }
+            
+            const historyHtml = history.map(item => `
+                <div class="history-item">
+                    <strong>${item.original_filename}</strong>
+                    <span style="float: right; color: #6c757d;">
+                        ${new Date(item.upload_timestamp).toLocaleString()}
+                    </span>
+                    <br>
+                    <small>
+                        Status: <strong>${item.status}</strong> | 
+                        Valid: ${item.is_valid ? '✅' : '❌'} |
+                        Size: ${(item.file_size / 1024).toFixed(1)} KB
+                        ${item.imported_count ? ` | Imported: ${item.imported_count} questions` : ''}
+                    </small>
+                </div>
+            `).join('');
+            
+            historyList.innerHTML = historyHtml;
+        }
+
+        function showError(message) {
+            const resultSection = document.getElementById('resultSection');
+            resultSection.style.display = 'block';
+            resultSection.className = 'result-section result-error';
+            resultSection.innerHTML = `<h3>❌ Error</h3><p>${message}</p>`;
+        }
+    </script>
+</body>
+</html>
