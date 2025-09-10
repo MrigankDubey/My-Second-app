@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vocabulary Quiz API Demo</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: #fafafa;
+        }
+        .section h3 {
+            color: #34495e;
+            margin-top: 0;
+        }
+        input, button, textarea {
+            padding: 10px;
+            margin: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        button {
+            background-color: #3498db;
+            color: white;
+            cursor: pointer;
+            border: none;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        .success {
+            color: #27ae60;
+            background-color: #d5f4e6;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .error {
+            color: #e74c3c;
+            background-color: #fadbd8;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .response {
+            background-color: #ecf0f1;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+            white-space: pre-wrap;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .quiz-question {
+            background-color: #ffffff;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+            border-left: 4px solid #3498db;
+        }
+        .option {
+            margin: 5px 0;
+        }
+        .option input {
+            margin-right: 10px;
+        }
+        .links {
+            text-align: center;
+            margin-top: 30px;
+        }
+        .links a {
+            color: #3498db;
+            text-decoration: none;
+            margin: 0 15px;
+            font-weight: bold;
+        }
+        .links a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎓 Vocabulary Quiz API Demo</h1>
+        
+        <div class="links">
+            <a href="http://localhost:8000/docs" target="_blank">📚 API Documentation</a>
+            <a href="http://localhost:8000/redoc" target="_blank">🔧 Interactive API</a>
+            <a href="http://localhost:8000/api/health" target="_blank">❤️ Health Check</a>
+        </div>
+
+        <!-- Authentication Section -->
+        <div class="section">
+            <h3>🔐 Authentication</h3>
+            
+            <div>
+                <h4>Register New User</h4>
+                <input type="text" id="regUsername" placeholder="Username" />
+                <input type="password" id="regPassword" placeholder="Password" />
+                <input type="email" id="regEmail" placeholder="Email (optional)" />
+                <button onclick="registerUser()">Register</button>
+            </div>
+
+            <div>
+                <h4>Login</h4>
+                <input type="text" id="loginUsername" placeholder="Username" />
+                <input type="password" id="loginPassword" placeholder="Password" />
+                <button onclick="loginUser()">Login</button>
+            </div>
+
+            <div id="authResult"></div>
+            <div id="tokenDisplay" style="word-break: break-all; font-size: 12px; color: #666;"></div>
+        </div>
+
+        <!-- Quiz Section -->
+        <div class="section">
+            <h3>📝 Quiz Operations</h3>
+            
+            <div>
+                <h4>Create Repetitive Quiz Session</h4>
+                <input type="number" id="questionCount" placeholder="Question Count (default: 20)" min="5" max="50" />
+                <input type="number" id="excludeRecent" placeholder="Exclude Recent (default: 5)" min="0" max="10" />
+                <button onclick="createQuizSession()">Create Quiz Session</button>
+            </div>
+            
+            <div>
+                <h4>Create Single Quiz (Legacy)</h4>
+                <button onclick="createQuiz()">Create Single Quiz</button>
+            </div>
+
+            <div id="quizResult"></div>
+            <div id="quizQuestions"></div>
+            
+            <div>
+                <button onclick="submitQuizRound()" id="submitBtn" style="display: none;">Submit Round</button>
+                <button onclick="submitQuiz()" id="submitLegacyBtn" style="display: none;">Submit Quiz</button>
+            </div>
+            
+            <div id="sessionStatus"></div>
+        </div>
+
+        <!-- Progress Section -->
+        <div class="section">
+            <h3>📊 Progress Tracking</h3>
+            <button onclick="getProgress()">Get My Progress</button>
+            <div id="progressResult"></div>
+        </div>
+
+        <!-- CSV Upload Section -->
+        <div class="section">
+            <h3>📁 CSV Upload (Admin)</h3>
+            
+            <div>
+                <h4>Upload Questions CSV</h4>
+                <input type="file" id="csvFile" accept=".csv" />
+                <button onclick="uploadCSV()">Upload & Validate</button>
+            </div>
+            
+            <div id="uploadResult"></div>
+            
+            <div id="importSection" style="display: none;">
+                <h4>Import Validated CSV</h4>
+                <label>
+                    <input type="checkbox" id="forceImport" />
+                    Force import (ignore warnings)
+                </label>
+                <button onclick="importCSV()" id="importBtn">Import Questions</button>
+            </div>
+            
+            <div>
+                <h4>Upload History</h4>
+                <button onclick="getUploadHistory()">View Upload History</button>
+                <div id="uploadHistory"></div>
+            </div>
+        </div>
+
+        <!-- Response Display -->
+        <div class="section">
+            <h3>🔍 API Response</h3>
+            <div id="responseDisplay" class="response">API responses will appear here...</div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8000/api';
+        let authToken = '';
+        let currentQuiz = null;
+        let currentSession = null;
+        let userResponses = [];
+        let isSessionMode = false;
+        let currentUploadId = null;
+
+        function displayResponse(data, isError = false) {
+            const responseDiv = document.getElementById('responseDisplay');
+            responseDiv.className = `response ${isError ? 'error' : 'success'}`;
+            responseDiv.textContent = JSON.stringify(data, null, 2);
+        }
+
+        function showMessage(elementId, message, isError = false) {
+            const element = document.getElementById(elementId);
+            element.className = isError ? 'error' : 'success';
+            element.textContent = message;
+        }
+
+        async function registerUser() {
+            const username = document.getElementById('regUsername').value;
+            const password = document.getElementById('regPassword').value;
+            const email = document.getElementById('regEmail').value;
+
+            if (!username || !password) {
+                showMessage('authResult', 'Username and password are required', true);
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/auth/register`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password, email })
+                });
+
+                const data = await response.json();
+                displayResponse(data, !response.ok);
+
+                if (response.ok) {
+                    authToken = data.access_token;
+                    showMessage('authResult', `User registered successfully! Token expires in ${data.expires_in} seconds.`);
+                    document.getElementById('tokenDisplay').textContent = `Token: ${authToken}`;
+                } else {
+                    showMessage('authResult', `Registration failed: ${data.error}`, true);
+                }
+            } catch (error) {
+                showMessage('authResult', `Error: ${error.message}`, true);
+                displayResponse({ error: error.message }, true);
+            }
+        }
+
+        async function loginUser() {
+            const username = document.getElementById('loginUsername').value;
+            const password = document.getElementById('loginPassword').value;
+
+            if (!username || !password) {
+                showMessage('authResult', 'Username and password are required', true);
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+
+                const data = await response.json();
+                displayResponse(data, !response.ok);
+
+                if (response.ok) {
+                    authToken = data.access_token;
+                    showMessage('authResult', `Login successful! Token expires in ${data.expires_in} seconds.`);
+                    document.getElementById('tokenDisplay').textContent = `Token: ${authToken}`;
+                } else {
+                    showMessage('authResult', `Login failed: ${data.error}`, true);
+                }
+            } catch (error) {
+                showMessage('authResult', `Error: ${error.message}`, true);
+                displayResponse({ error: error.message }, true);
+            }
+        }
+
+        async function createQuizSession() {
+            if (!authToken) {
+                showMessage('quizResult', 'Please login first', true);
+                return;
+            }
+
+            const questionCount = document.getElementById('questionCount').value || 20;
+            const excludeRecent = document.getElementById('excludeRecent').value || 5;
+
+            try {
+                const response = await fetch(`${API_BASE}/quiz/session/create`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({
+                        target_question_count: parseInt(questionCount),
+                        exclude_recent_attempts: parseInt(excludeRecent)
+                    })
+                });
+
+                const data = await response.json();
+                displayResponse(data, !response.ok);
+
+                if (response.ok) {
+                    currentSession = data;
+                    userResponses = [];
+                    isSessionMode = true;
+                    
+                    showMessage('quizResult', 
+                        `Quiz session created! Session ID: ${data.session_id} | Round: ${data.current_round}`);
+                    showMessage('sessionStatus', 
+                        `📚 Round ${data.current_round} - Answer all questions correctly to complete!`);
+                    
+                    displayQuestions(data.questions);
+                    document.getElementById('submitBtn').style.display = 'block';
+                    document.getElementById('submitLegacyBtn').style.display = 'none';
+                } else {
+                    showMessage('quizResult', `Quiz session creation failed: ${data.error}`, true);
+                }
+            } catch (error) {
+                showMessage('quizResult', `Error: ${error.message}`, true);
+                displayResponse({ error: error.message }, true);
+            }
+        }
+
+        async function submitQuizRound() {
+            if (!currentSession || userResponses.length === 0) {
+                showMessage('quizResult', 'Please answer some questions first', true);
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/quiz/session/${currentSession.session_id}/submit`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({ responses: userResponses })
+                });
+
+                const data = await response.json();
+                displayResponse(data, !response.ok);
+
+                if (response.ok) {
+                    const roundResult = data.round_result;
+                    const roundNum = roundResult.round_number + 1; // Display as 1-based
+                    
+                    showMessage('quizResult', 
+                        `Round ${roundNum} completed! Score: ${roundResult.correct_answers}/${roundResult.total_questions} (${roundResult.score_percentage.toFixed(1)}%)`);
+                    
+                    if (data.is_session_completed) {
+                        // Session completed successfully!
+                        showMessage('sessionStatus', 
+                            `🎉 Session completed! All questions answered correctly!`, false);
+                        
+                        if (data.session_summary) {
+                            const summary = data.session_summary;
+                            showMessage('sessionStatus', 
+                                `📈 Final Results: ${summary.total_rounds} rounds, First attempt: ${summary.first_attempt_score.toFixed(1)}%, Words mastered: ${summary.words_mastered_first_try}`, false);
+                        }
+                        
+                        document.getElementById('submitBtn').style.display = 'none';
+                        document.getElementById('quizQuestions').innerHTML = '<p class="success">🎉 Congratulations! You have mastered all questions in this quiz!</p>';
+                        
+                        // Reset for next session
+                        currentSession = null;
+                        isSessionMode = false;
+                    } else {
+                        // Continue with incorrect questions
+                        if (data.next_questions && data.next_questions.length > 0) {
+                            currentSession = data; // Update session state
+                            userResponses = [];
+                            
+                            showMessage('sessionStatus', 
+                                `📚 Round ${data.current_round} - ${data.next_questions.length} questions to retry`);
+                            
+                            displayQuestions(data.next_questions);
+                        } else {
+                            showMessage('quizResult', 'No more questions to retry', true);
+                        }
+                    }
+                } else {
+                    showMessage('quizResult', `Quiz submission failed: ${data.error}`, true);
+                }
+            } catch (error) {
+                showMessage('quizResult', `Error: ${error.message}`, true);
+                displayResponse({ error: error.message }, true);
+            }
+        }
+
+        async function createQuiz() {
+            if (!authToken) {
+                showMessage('quizResult', 'Please login first', true);
+                return;
+            }
+
+            const questionCount = document.getElementById('questionCount').value || 20;
+            const excludeRecent = document.getElementById('excludeRecent').value || 5;
+
+            try {
+                const response = await fetch(`${API_BASE}/quiz/create`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({
+                        target_question_count: parseInt(questionCount),
+                        exclude_recent_attempts: parseInt(excludeRecent)
+                    })
+                });
+
+                const data = await response.json();
+                displayResponse(data, !response.ok);
+
+                if (response.ok) {
+                    currentQuiz = data;
+                    userResponses = [];
+                    isSessionMode = false;
+                    
+                    showMessage('quizResult', `Legacy quiz created! Attempt ID: ${data.attempt_id}`);
+                    showMessage('sessionStatus', '📝 Single quiz mode - submit once for final results');
+                    
+                    displayQuestions(data.questions);
+                    document.getElementById('submitBtn').style.display = 'none';
+                    document.getElementById('submitLegacyBtn').style.display = 'block';
+                } else {
+                    showMessage('quizResult', `Quiz creation failed: ${data.error}`, true);
+                }
+            } catch (error) {
+                showMessage('quizResult', `Error: ${error.message}`, true);
+                displayResponse({ error: error.message }, true);
+            }
+        }
+
+        function displayQuestions(questions) {
+            const questionsDiv = document.getElementById('quizQuestions');
+            questionsDiv.innerHTML = '';
+
+            questions.forEach((question, index) => {
+                const questionDiv = document.createElement('div');
+                questionDiv.className = 'quiz-question';
+                
+                let optionsHtml = '';
+                question.options.forEach((option, optIndex) => {
+                    const inputId = `q${question.question_id}_${optIndex}`;
+                    optionsHtml += `
+                        <div class="option">
+                            <input type="radio" 
+                                   name="question_${question.question_id}" 
+                                   value="${option}" 
+                                   id="${inputId}"
+                                   onchange="recordAnswer(${question.question_id}, '${option}')">
+                            <label for="${inputId}">${option}</label>
+                        </div>
+                    `;
+                });
+
+                questionDiv.innerHTML = `
+                    <h4>Question ${index + 1} (${question.quiz_type})</h4>
+                    <p><strong>${question.question_text}</strong></p>
+                    ${optionsHtml}
+                `;
+
+                questionsDiv.appendChild(questionDiv);
+            });
+        }
+
+        function recordAnswer(questionId, answer) {
+            // Remove existing answer for this question
+            userResponses = userResponses.filter(r => r.question_id !== questionId);
+            // Add new answer
+            userResponses.push({ question_id: questionId, answer: answer });
+        }
+
+        async function submitQuiz() {
+            if (!currentQuiz || userResponses.length === 0) {
+                showMessage('quizResult', 'Please answer some questions first', true);
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/quiz/${currentQuiz.attempt_id}/submit`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({ responses: userResponses })
+                });
+
+                const data = await response.json();
+                displayResponse(data, !response.ok);
+
+                if (response.ok) {
+                    showMessage('quizResult', 
+                        `Quiz submitted! Score: ${data.correct_answers}/${data.total_questions} (${data.score_percentage.toFixed(1)}%)`);
+                    document.getElementById('submitLegacyBtn').style.display = 'none';
+                    
+                    // Reset for next quiz
+                    currentQuiz = null;
+                    isSessionMode = false;
+                } else {
+                    showMessage('quizResult', `Quiz submission failed: ${data.error}`, true);
+                }
+            } catch (error) {
+                showMessage('quizResult', `Error: ${error.message}`, true);
+                displayResponse({ error: error.message }, true);
+            }
+        }
+
+        async function getProgress() {
+            if (!authToken) {
+                showMessage('progressResult', 'Please login first', true);
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/progress`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+
+                const data = await response.json();
+                displayResponse(data, !response.ok);
+
+                if (response.ok) {
+                    let progressText = `Total Attempts: ${data.total_attempts}`;
+                    if (data.average_score !== null) {
+                        progressText += `, Average Score: ${data.average_score.toFixed(1)}%`;
+                    }
+                    showMessage('progressResult', progressText);
+                } else {
+                    showMessage('progressResult', `Failed to get progress: ${data.error}`, true);
+                }
+            } catch (error) {
+                showMessage('progressResult', `Error: ${error.message}`, true);
+                displayResponse({ error: error.message }, true);
+            }
+        }
+
+        // Load quiz types on page load
+        window.onload = async function() {
+            try {
+                const response = await fetch(`${API_BASE}/quiz/types`);
+                const types = await response.json();
+                console.log('Available quiz types:', types);
+            } catch (error) {
+                console.log('API not available yet:', error.message);
+            }
+        };
+
+        // CSV Upload Functions
+        async function uploadCSV() {
+            if (!authToken) {
+                showMessage('uploadResult', 'Please login first', true);
+                return;
+            }
+
+            const fileInput = document.getElementById('csvFile');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                showMessage('uploadResult', 'Please select a CSV file', true);
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                showMessage('uploadResult', 'Uploading and validating CSV...', false);
+                
+                const response = await fetch(`${API_BASE}/admin/csv/upload`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: formData
+                });
+
+                const data = await response.json();
+                displayResponse(data, !response.ok);
+
+                if (response.ok) {
+                    currentUploadId = data.upload_id;
+                    
+                    let message = `File uploaded! Valid: ${data.is_valid ? '✓' : '✗'}, Can Import: ${data.can_import ? '✓' : '✗'}`;
+                    if (data.validation_summary) {
+                        message += `\nValid rows: ${data.validation_summary.valid_rows}, Invalid: ${data.validation_summary.invalid_rows}`;
+                        message += `\nErrors: ${data.validation_summary.error_count}, Warnings: ${data.validation_summary.warning_count}`;
+                    }
+                    
+                    showMessage('uploadResult', message, !data.can_import);
+                    
+                    // Show validation report
+                    if (data.validation_report) {
+                        const reportDiv = document.createElement('div');
+                        reportDiv.className = 'response';
+                        reportDiv.style.marginTop = '10px';
+                        reportDiv.textContent = data.validation_report;
+                        document.getElementById('uploadResult').appendChild(reportDiv);
+                    }
+                    
+                    // Show import section if file can be imported
+                    if (data.can_import || data.validation_summary.warning_count > 0) {
+                        document.getElementById('importSection').style.display = 'block';
+                    }
+                } else {
+                    showMessage('uploadResult', `Upload failed: ${data.error || data.detail}`, true);
+                }
+            } catch (error) {
+                showMessage('uploadResult', `Error: ${error.message}`, true);
+                displayResponse({ error: error.message }, true);
+            }
+        }
+
+        async function importCSV() {
+            if (!authToken || !currentUploadId) {
+                showMessage('uploadResult', 'Please upload and validate a CSV file first', true);
+                return;
+            }
+
+            const forceImport = document.getElementById('forceImport').checked;
+
+            try {
+                showMessage('uploadResult', 'Importing CSV questions...', false);
+                
+                const formData = new FormData();
+                formData.append('upload_id', currentUploadId);
+                formData.append('force_import', forceImport);
+
+                const response = await fetch(`${API_BASE}/admin/csv/import`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: formData
+                });
+
+                const data = await response.json();
+                displayResponse(data, !response.ok);
+
+                if (response.ok && data.success) {
+                    const results = data.import_results;
+                    showMessage('uploadResult', 
+                        `Import successful! ${results.imported_count} questions imported, ${results.error_count} errors. Success rate: ${results.success_rate.toFixed(1)}%`, 
+                        false);
+                    
+                    // Hide import section and reset
+                    document.getElementById('importSection').style.display = 'none';
+                    currentUploadId = null;
+                    document.getElementById('csvFile').value = '';
+                } else {
+                    showMessage('uploadResult', `Import failed: ${data.error || 'Unknown error'}`, true);
+                }
+            } catch (error) {
+                showMessage('uploadResult', `Error: ${error.message}`, true);
+                displayResponse({ error: error.message }, true);
+            }
+        }
+
+        async function getUploadHistory() {
+            if (!authToken) {
+                showMessage('uploadHistory', 'Please login first', true);
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/admin/csv/uploads`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+
+                const data = await response.json();
+                displayResponse(data, !response.ok);
+
+                if (response.ok) {
+                    const uploads = data.uploads;
+                    if (uploads.length === 0) {
+                        showMessage('uploadHistory', 'No upload history found');
+                        return;
+                    }
+                    
+                    let historyHtml = '<table style="width: 100%; border-collapse: collapse; margin-top: 10px;">';
+                    historyHtml += '<tr style="background-color: #f0f0f0;"><th>File</th><th>Status</th><th>Uploaded</th><th>Imported</th><th>Questions</th></tr>';
+                    
+                    uploads.forEach(upload => {
+                        const uploadDate = new Date(upload.upload_timestamp).toLocaleDateString();
+                        const importDate = upload.import_timestamp ? new Date(upload.import_timestamp).toLocaleDateString() : '-';
+                        const questionCount = upload.imported_count || 0;
+                        
+                        historyHtml += `
+                            <tr style="border-bottom: 1px solid #ddd;">
+                                <td style="padding: 8px;">${upload.original_filename}</td>
+                                <td style="padding: 8px;">${upload.status}</td>
+                                <td style="padding: 8px;">${uploadDate}</td>
+                                <td style="padding: 8px;">${importDate}</td>
+                                <td style="padding: 8px;">${questionCount}</td>
+                            </tr>
+                        `;
+                    });
+                    
+                    historyHtml += '</table>';
+                    
+                    const historyDiv = document.getElementById('uploadHistory');
+                    historyDiv.innerHTML = historyHtml;
+                } else {
+                    showMessage('uploadHistory', `Failed to get upload history: ${data.error}`, true);
+                }
+            } catch (error) {
+                showMessage('uploadHistory', `Error: ${error.message}`, true);
+                displayResponse({ error: error.message }, true);
+            }
+        }
+    </script>
+</body>
+</html>

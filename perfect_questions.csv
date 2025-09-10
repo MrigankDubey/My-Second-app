@@ -1,0 +1,8 @@
+question_text,quiz_type,correct_answer,options
+"What is a synonym of ""brilliant""?",synonym,bright,"dim,bright,dark,dull"
+"Choose the antonym of ""ancient"".",antonym,modern,"old,historic,modern,vintage"
+Hand : Glove :: Foot : ?,analogy,Shoe,"Hat,Shoe,Sock,Sandal"
+The _____ weather was perfect for the picnic.,fill_in_blank,sunny,"rainy,sunny,cloudy,stormy"
+Find the odd word in this group.,odd_one_out,car,"dog,cat,bird,car"
+"""Ubiquitous"" means:",word_meaning,everywhere,"rare,everywhere,hidden,difficult"
+Which word best completes the sentence?,multiple_choice,therefore,"however,therefore,meanwhile,otherwise"
